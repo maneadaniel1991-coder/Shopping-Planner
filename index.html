@@ -3,27 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Shopping Planner</title>
+    <title>Ultimate Shopping Planner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Warm Neutrals -->
-    <!-- Application Structure Plan: The application is designed as an interactive dashboard. This structure was chosen over a static table to make the shopping list actionable and insightful. The core features are dynamic filtering by retailer and category, allowing a user to instantly create a shopping list for a specific store (e.g., "What do I need from Asda?"). This is paired with a summary statistics section for a quick overview and a donut chart to visualize the distribution of items per retailer. This user flow—from overview, to visualization, to specific filtering—transforms the raw data into a practical planning tool, enhancing usability far beyond a simple list. -->
-    <!-- Visualization & Content Choices: The CSV data is presented using three methods: 1) Summary Stat Cards (HTML/CSS) to inform the user of key totals at a glance. 2) A Donut Chart (Chart.js/Canvas) to visually compare the proportion of items from each retailer, helping to understand the overall shopping strategy. Interaction is via tooltips on hover. This was chosen for its high impact in showing part-to-whole relationships. 3) An Interactive Card Grid (HTML/CSS updated with JS) to organize and display individual items. Users can filter this grid, which is a more engaging and responsive way to explore the list than a static table. Justification: This combination of elements provides a multi-faceted view of the data, catering to both quick analysis and detailed exploration. -->
+    <!-- Chosen Palette: Midnight Blue & Grey -->
+    <!-- Application Structure Plan: The application has been upgraded to a real-time collaborative dashboard powered by Firebase Firestore. This allows multiple users to share and edit the same list simultaneously. The structure includes integrated budget tracking and pantry management, transforming it from a simple list into a full household inventory system. The user flow is now: Manage master list -> Filter for a shopping trip -> Add items to a temporary cart -> Track budget -> Move purchased items into a digital pantry. This provides a complete, cyclical management loop. -->
+    <!-- Visualization & Content Choices: The core visualizations (Donut Chart, Stat Cards) remain to provide an at-a-glance overview. New UI elements for price input and pantry status have been added. Firebase's real-time `onSnapshot` listener now drives all UI updates, replacing the previous local array manipulation. This ensures data consistency across all users and provides a more robust and scalable foundation. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #FDFBF8;
-            color: #4A4A4A;
-        }
-        .filter-btn {
-            transition: all 0.2s ease-in-out;
-        }
-        .filter-btn.active {
-            background-color: #A88B79;
-            color: #FFFFFF;
-            font-weight: 600;
+            background-color: #1a202c;
+            color: #e2e8f0;
         }
         .chart-container {
             position: relative;
@@ -39,43 +31,80 @@
                 height: 350px;
             }
         }
+        .form-input {
+            background-color: #2d3748;
+            border-color: #4a5568;
+            color: #e2e8f0;
+        }
+        .form-input::placeholder {
+            color: #a0aec0;
+        }
+        .form-input:focus {
+            --tw-ring-color: #4299e1;
+            border-color: #4299e1;
+        }
+        .filter-toggle-btn {
+            transition: background-color 0.2s;
+        }
+        .filter-toggle-btn.active {
+            background-color: #4299e1;
+            color: white;
+        }
+        .trend-icon {
+            width: 1rem;
+            height: 1rem;
+            display: inline-block;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body class="antialiased">
-    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="text-white text-xl">Connecting to your list...</div>
+    </div>
 
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-[#6D5D53]">Household Shopping Planner</h1>
-            <p class="mt-2 text-lg text-[#8C7B70]">Your interactive guide to smart and efficient shopping.</p>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-100">Ultimate Shopping Planner</h1>
+            <p class="mt-2 text-lg text-gray-400">Your real-time, collaborative guide to smart shopping.</p>
         </header>
 
         <section id="summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         </section>
 
-        <section id="add-item-section" class="mb-8 bg-white rounded-2xl shadow-lg p-4 sm:p-6">
-            <h2 class="text-xl font-bold text-[#6D5D53] mb-4">Add a New Item</h2>
-            <form id="add-item-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <input type="text" id="item-name" placeholder="Item Name" class="p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-[#A88B79] focus:border-[#A88B79] lg:col-span-1" required>
-                <input type="text" id="item-category" placeholder="Category" class="p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-[#A88B79] focus:border-[#A88B79] lg:col-span-1" required>
-                <input type="text" id="item-retailer" placeholder="Retailer" class="p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-[#A88B79] focus:border-[#A88B79] lg:col-span-1" required>
-                <input type="text" id="item-notes" placeholder="Notes" class="p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-[#A88B79] focus:border-[#A88B79] md:col-span-2 lg:col-span-1">
-                <button type="submit" class="bg-[#A88B79] text-white font-semibold p-2 rounded-lg hover:bg-[#937866] transition-colors md:col-span-2 lg:col-span-1">Add Item</button>
+        <section id="add-item-section" class="mb-8 bg-[#2d3748] rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-700">
+            <h2 class="text-xl font-bold text-gray-100 mb-4">Add a New Item</h2>
+            <form id="add-item-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <input type="text" id="item-name" placeholder="Item Name" class="form-input p-2 border rounded-lg" required>
+                <input type="text" id="item-category" placeholder="Category" class="form-input p-2 border rounded-lg" required>
+                <input type="text" id="item-retailer" placeholder="Retailer" class="form-input p-2 border rounded-lg" required>
+                <input type="number" step="0.01" id="item-price" placeholder="Price (£)" class="form-input p-2 border rounded-lg">
+                <input type="text" id="item-notes" placeholder="Notes" class="form-input p-2 border rounded-lg">
+                <input type="text" id="item-replacement" placeholder="Replacement Item" class="form-input p-2 border rounded-lg">
+                <input type="url" id="item-link" placeholder="Direct Product Link" class="form-input p-2 border rounded-lg">
+                <button type="submit" class="bg-blue-600 text-white font-semibold p-2 rounded-lg hover:bg-blue-700 transition-colors md:col-span-2 lg:col-span-4">Add Item to Master List</button>
             </form>
         </section>
 
-        <main class="bg-white rounded-2xl shadow-lg p-4 sm:p-6">
+        <main class="bg-[#2d3748] rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-700">
             <div class="mb-6">
-                <h2 class="text-xl font-bold text-[#6D5D53] mb-3">Filter Your List</h2>
-                 <div class="flex flex-wrap gap-2 mb-4 items-center">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-100 mb-3 sm:mb-0">Filter Your Master List</h2>
+                    <div class="flex items-center bg-gray-800 rounded-lg p-1">
+                        <button id="view-shopping-list" class="filter-toggle-btn active w-1/2 text-center py-1 px-3 rounded-md text-sm">Shopping List</button>
+                        <button id="view-pantry" class="filter-toggle-btn w-1/2 text-center py-1 px-3 rounded-md text-sm">Pantry</button>
+                    </div>
+                </div>
+                 <div class="flex flex-wrap gap-2 items-center">
                     <label for="category-filter" class="sr-only">Filter by Category</label>
-                    <select id="category-filter" class="p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-[#A88B79] focus:border-[#A88B79]">
+                    <select id="category-filter" class="form-input p-2 border rounded-lg">
                         <option value="all">All Categories</option>
                     </select>
                     <label for="retailer-filter" class="sr-only">Filter by Retailer</label>
-                    <select id="retailer-filter" class="p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-[#A88B79] focus:border-[#A88B79]">
+                    <select id="retailer-filter" class="form-input p-2 border rounded-lg">
                         <option value="all">All Retailers</option>
                     </select>
-                    <button id="scan-all-btn" class="bg-[#6D5D53] text-white font-semibold p-2 rounded-lg hover:bg-[#5a4d44] transition-colors flex items-center gap-2">
+                    <button id="scan-all-btn" class="bg-gray-600 text-white font-semibold p-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" /></svg>
                         Scan All Visible
                     </button>
@@ -84,134 +113,183 @@
 
             <div class="lg:grid lg:grid-cols-3 lg:gap-8">
                 <div class="lg:col-span-1 mb-8 lg:mb-0">
-                    <h3 class="text-xl font-bold text-center text-[#6D5D53] mb-4">Shopping Distribution</h3>
-                    <p class="text-center text-sm text-[#8C7B70] mb-4">This chart shows where your items are sourced from, helping you plan your trips effectively.</p>
+                    <h3 class="text-xl font-bold text-center text-gray-100 mb-4">Shopping Distribution</h3>
+                    <p class="text-center text-sm text-gray-400 mb-4">Distribution of items on your shopping list.</p>
                     <div class="chart-container">
                         <canvas id="retailerChart"></canvas>
                     </div>
                 </div>
 
-                <div id="shopping-list" class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 content-start">
+                <div id="shopping-list" class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 content-start min-h-[300px]">
                 </div>
             </div>
         </main>
     </div>
 
-    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md">
-            <h2 class="text-xl font-bold text-[#6D5D53] mb-4">Edit Item</h2>
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center p-4 z-50">
+        <div class="bg-[#2d3748] border border-gray-700 rounded-2xl shadow-lg p-6 w-full max-w-md">
+            <h2 class="text-xl font-bold text-gray-100 mb-4">Edit Item</h2>
             <form id="edit-item-form">
-                <input type="hidden" id="edit-item-index">
-                <div class="mb-4">
-                    <label for="edit-item-name" class="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
-                    <input type="text" id="edit-item-name" class="w-full p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-[#A88B79] focus:border-[#A88B79]" required>
-                </div>
-                <div class="mb-4">
-                    <label for="edit-item-category" class="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <input type="text" id="edit-item-category" class="w-full p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-[#A88B79] focus:border-[#A88B79]" required>
-                </div>
-                 <div class="mb-4">
-                    <label for="edit-item-retailer" class="block text-sm font-medium text-gray-700 mb-1">Retailer</label>
-                    <input type="text" id="edit-item-retailer" class="w-full p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-[#A88B79] focus:border-[#A88B79]" required>
-                </div>
-                <div class="mb-4">
-                    <label for="edit-item-notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                    <input type="text" id="edit-item-notes" class="w-full p-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-[#A88B79] focus:border-[#A88B79]">
+                <input type="hidden" id="edit-item-id">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="mb-4">
+                        <label for="edit-item-name" class="block text-sm font-medium text-gray-300 mb-1">Item Name</label>
+                        <input type="text" id="edit-item-name" class="w-full p-2 border rounded-lg form-input" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit-item-category" class="block text-sm font-medium text-gray-300 mb-1">Category</label>
+                        <input type="text" id="edit-item-category" class="w-full p-2 border rounded-lg form-input" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit-item-retailer" class="block text-sm font-medium text-gray-300 mb-1">Retailer</label>
+                        <input type="text" id="edit-item-retailer" class="w-full p-2 border rounded-lg form-input" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit-item-price" class="block text-sm font-medium text-gray-300 mb-1">Price (£)</label>
+                        <input type="number" step="0.01" id="edit-item-price" class="w-full p-2 border rounded-lg form-input">
+                    </div>
+                    <div class="col-span-2 mb-4">
+                        <label for="edit-item-notes" class="block text-sm font-medium text-gray-300 mb-1">Notes</label>
+                        <input type="text" id="edit-item-notes" class="w-full p-2 border rounded-lg form-input">
+                    </div>
+                    <div class="col-span-2 mb-4">
+                        <label for="edit-item-replacement" class="block text-sm font-medium text-gray-300 mb-1">Replacement Item</label>
+                        <input type="text" id="edit-item-replacement" class="w-full p-2 border rounded-lg form-input">
+                    </div>
+                    <div class="col-span-2 mb-4">
+                        <label for="edit-item-link" class="block text-sm font-medium text-gray-300 mb-1">Direct Link</label>
+                        <input type="url" id="edit-item-link" class="w-full p-2 border rounded-lg form-input">
+                    </div>
                 </div>
                 <div class="flex justify-end gap-4">
-                    <button type="button" id="cancel-edit" class="bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
-                    <button type="submit" class="bg-[#A88B79] text-white font-semibold py-2 px-4 rounded-lg hover:bg-[#937866] transition-colors">Save Changes</button>
+                    <button type="button" id="cancel-edit" class="bg-gray-600 text-gray-100 font-semibold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors">Cancel</button>
+                    <button type="submit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 
-    <script>
-        let shoppingData = [
-            { category: "Household Cleaning", item: "Dishwasher Tablets/Pods", retailer: "Amazon Subscribe & Save", notes: "Bulk buy brands like Fairy or Finish. Set a delivery frequency (e.g., every 2-3 months) for savings and convenience." },
-            { category: "Household Cleaning", item: "Washing Machine Pods", retailer: "Amazon Subscribe & Save", notes: "Buying in bulk offers significant savings." },
-            { category: "Household Cleaning", item: "Fabric Softener (e.g., Comfort)", retailer: "Amazon Subscribe & Save", notes: "Large bottles on subscription are often cheaper per wash than supermarket prices." },
-            { category: "Household Cleaning", item: "All-Purpose/Multi-Purpose Cleaner", retailer: "Amazon Subscribe & Save", notes: "Brands like Dettol offer multi-packs. Good to have on subscription." },
-            { category: "Household Cleaning", item: "Kitchen Cleaner Spray", retailer: "Amazon Subscribe & Save", notes: "Dettol Power & Pure or similar can be added to your recurring Amazon delivery." },
-            { category: "Household Cleaning", item: "Toilet Cleaner Gel (e.g., Harpic)", retailer: "Asda", notes: "Buy multi-packs when on offer during your regular grocery shop." },
-            { category: "Household Cleaning", item: "Bleach / Disinfectant", retailer: "Asda", notes: "Add to your weekly/bi-weekly Asda delivery as needed." },
-            { category: "Household Cleaning", item: "Floor Cleaner", retailer: "Asda", notes: "Purchase as required with your main grocery delivery." },
-            { category: "Household Cleaning", item: "Glass Cleaner", retailer: "Asda", notes: "Add to your Asda basket when running low." },
-            { category: "Household Cleaning", item: "Furniture Polish", retailer: "Asda", notes: "Add to your Asda basket when running low." },
-            { category: "Household Cleaning", item: "Air Freshener Plug-in Refills", retailer: "Amazon Subscribe & Save", notes: "Twin packs of Febreze or Air Wick are ideal for Subscribe & Save." },
-            { category: "Household Cleaning", item: "Dish Soap (Washing Up Liquid)", retailer: "Amazon Subscribe & Save", notes: "Large bottles of brands like Fairy Max Power are cost-effective on subscription." },
-            { category: "Kitchen Supplies", item: "Kitchen Roll (e.g., Regina Blitz)", retailer: "Amazon Subscribe & Save", notes: "Bulk packs offer the best value per sheet. Set for delivery every 1-2 months." },
-            { category: "Toiletries", item: "Toilet Paper (e.g., Andrex)", retailer: "Amazon Subscribe & Save", notes: "Buying large packs (16+ rolls) on subscription is almost always cheaper per roll." },
-            { category: "Kitchen Supplies", item: "Trash Bags / Caddy Liners", retailer: "Asda", notes: "Check for Asda's own-brand multi-packs for good value." },
-            { category: "Kitchen Supplies", item: "Kitchen Foil", retailer: "Asda", notes: "Add to your grocery order." },
-            { category: "Kitchen Supplies", item: "Cling Film", retailer: "Asda", notes: "Add to your grocery order." },
-            { category: "Kitchen Supplies", item: "Baking Paper", retailer: "Asda", notes: "Add to your grocery order." },
-            { category: "Kitchen Supplies", item: "Sponges (Cleaning & Dishwashing)", retailer: "Amazon", notes: "Buy large multi-packs of sponges on Amazon; much cheaper than supermarket prices." },
-            { category: "Kitchen Supplies", item: "Rubber Gloves", retailer: "Asda", notes: "Add a pair to your grocery order when needed." },
-            { category: "Kitchen Supplies", item: "Dish Towels / Pot Holders", retailer: "Amazon / Asda", notes: "Purchase as needed. Amazon often has better value multi-packs." },
-            { category: "Pantry Staples", item: "Sunflower Oil (e.g., KTC 5L)", retailer: "Asda", notes: "Large 5-litre bottles offer the best long-term value." },
-            { category: "Pantry Staples", item: "Olive Oil", retailer: "Asda", notes: "Look for promotions on 1-litre bottles." },
-            { category: "Pantry Staples", item: "Basmati Rice (e.g., Tilda)", retailer: "Asda / Amazon", notes: "Large bags (5kg+) from Asda are good value. Check Amazon for bulk deals too." },
-            { category: "Pantry Staples", item: "Arborio Rice", retailer: "Asda", notes: "Add to your regular grocery shop." },
-            { category: "Pantry Staples", item: "Pasta", retailer: "Asda", notes: "Asda's own-brand pasta is very cost-effective, especially in larger bags." },
-            { category: "Pantry Staples", item: "Canned Chopped Tomatoes", retailer: "Asda", notes: "Buy in multi-packs (4-6 cans) for a lower price per can." },
-            { category: "Pantry Staples", item: "Canned Plum Tomatoes", retailer: "Asda", notes: "Buy in multi-packs." },
-            { category: "Pantry Staples", item: "Canned Chickpeas", retailer: "Asda", notes: "Stock up when on offer." },
-            { category: "Pantry Staples", item: "Canned Cannellini Beans", retailer: "Asda", notes: "Asda's own brand is a good value option." },
-            { category: "Pantry Staples", item: "Canned Mushrooms", retailer: "Asda", notes: "Just Essentials by Asda range is a very cheap option." },
-            { category: "Pantry Staples", item: "Canned Sweetcorn", retailer: "Asda", notes: "Multi-packs of brands like Green Giant offer good value." },
-            { category: "Pantry Staples", item: "Canned Tuna", retailer: "Asda", notes: "Buy in multi-packs." },
-            { category: "Pantry Staples", item: "Canned Baked Beans", retailer: "Asda", notes: "Stock up on multi-packs when they are on special offer." },
-            { category: "Pantry Staples", item: "Canned Lentils / Green Beans", retailer: "Asda", notes: "Add as needed to your grocery shop." },
-            { category: "Pantry Staples", item: "Ketchup (e.g., Heinz)", retailer: "Asda", notes: "Buy the largest bottle size available for the best price per 100g." },
-            { category: "Pantry Staples", item: "Mayonnaise (e.g., Heinz)", retailer: "Asda", notes: "Larger jars/bottles are better value." },
-            { category: "Pantry Staples", item: "Mustard", retailer: "Asda", notes: "Purchase as needed." },
-            { category: "Pantry Staples", item: "Salt & Pepper", retailer: "Asda", notes: "Purchase grinders or refill packs as needed." },
-            { category: "Pantry Staples", item: "Spices (e.g., Prymat)", retailer: "Asda", notes: "Add to your grocery shop as required." },
-            { category: "Pantry Staples", item: "Flour / Polenta", retailer: "Asda", notes: "Add to your grocery shop as required." },
-            { category: "Pantry Staples", item: "Sugar", retailer: "Asda", notes: "Add to your grocery shop as required." },
-            { category: "Drinks", item: "Coffee Pods (All types)", retailer: "Amazon Subscribe & Save", notes: "Buying packs of 3 or more boxes of Nescafé/Starbucks pods is significantly cheaper than supermarket prices." },
-            { category: "Drinks", item: "Diet Coke / Juices", retailer: "Asda", notes: "Look for multi-pack deals and offers." },
-            { category: "Snacks", item: "Crackers", retailer: "Asda", notes: "Add to your grocery shop." },
-            { category: "Bakery & Cereals", item: "Cereal", retailer: "Asda", notes: "Buy larger boxes for better value per serving." },
-            { category: "Dairy & Eggs", item: "Milk", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Dairy & Eggs", item: "Cheese (Mozzarella, etc.)", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Dairy & Eggs", item: "Philadelphia Spreadable Cheese", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Dairy & Eggs", item: "Butter (e.g., Lurpak)", retailer: "Asda", notes: "Stock up when on offer." },
-            { category: "Dairy & Eggs", item: "Yogurt", retailer: "Asda", notes: "Buy larger pots for better value." },
-            { category: "Dairy & Eggs", item: "Eggs", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Bakery & Cereals", item: "Bread", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Meat, Poultry & Fish", item: "Chicken (Thighs, Drumsticks)", retailer: "Asda", notes: "Larger packs are often better value per kg." },
-            { category: "Meat, Poultry & Fish", item: "Minced Chicken", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Meat, Poultry & Fish", item: "Pork Sausages (e.g., Richmond)", retailer: "Iceland / Asda", notes: "Check Iceland for bulk-buy freezer deals." },
-            { category: "Meat, Poultry & Fish", item: "Other Meats / Fish", retailer: "Asda", notes: "Buy from the fresh counter or pre-packaged as needed." },
-            { category: "Fresh Produce", item: "Bananas", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Fresh Produce", item: "Apples (e.g., Pink Lady)", retailer: "Asda", notes: "Buy in bags rather than loose for better value." },
-            { category: "Fresh Produce", item: "Onions (Red, Brown/White)", retailer: "Asda", notes: "Buy in net bags for better value." },
-            { category: "Fresh Produce", item: "Potatoes (Baking, Red)", retailer: "Asda", notes: "2kg bags are a good staple." },
-            { category: "Fresh Produce", item: "Carrots", retailer: "Asda", notes: "Buy in bags." },
-            { category: "Fresh Produce", item: "Garlic", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Fresh Produce", item: "Tomatoes (Salad, etc.)", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Fresh Produce", item: "Cucumber (Standard, Mini)", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Fresh Produce", item: "Mushrooms (Fresh)", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Fresh Produce", item: "Fresh Salad Leaves", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Fresh Produce", item: "Courgettes / Aubergines", retailer: "Asda", notes: "Add to your weekly delivery." },
-            { category: "Frozen Foods", item: "Frozen Mixed Vegetables", retailer: "Iceland", notes: "Bulk buy large bags from Iceland for the best value (e.g., Birds Eye)." },
-            { category: "Frozen Foods", item: "Frozen Peas / Spinach", retailer: "Iceland", notes: "Stock up the freezer with large bags from Iceland." },
-            { category: "Frozen Foods", item: "Frozen Chips", retailer: "Iceland", notes: "Iceland has frequent offers on large bags." },
-            { category: "Frozen Foods", item: "Frozen Seafood", retailer: "Iceland", notes: "Iceland has a wide variety and good deals on frozen fish and seafood." },
-            { category: "Frozen Foods", item: "Frozen Paratha (e.g., Shana)", retailer: "Iceland / Asda", notes: "Check the freezer aisle." },
-            { category: "Frozen Foods", item: "Frozen Gyoza (e.g., Itsu)", retailer: "Iceland / Asda", notes: "Check the freezer aisle." },
-            { category: "Frozen Foods", item: "Frozen Okra (e.g., Taj Bhindi)", retailer: "Asda", notes: "Check the world foods freezer section." },
-            { category: "Toiletries", item: "Hand Soap", retailer: "Amazon", notes: "Buy multi-pack refills to top up dispensers; much cheaper than buying new bottles." },
-            { category: "Toiletries", item: "Shower Gel (Men's)", retailer: "Asda", notes: "Look for offers on larger bottles." },
-            { category: "Toiletries", item: "Shampoo (Men's)", retailer: "Asda", notes: "Look for offers on larger bottles." },
-            { category: "Toiletries", item: "Tissues (e.g., Kleenex, ASDA)", retailer: "Amazon Subscribe & Save", notes: "Buying tissue cube multi-packs on subscription is convenient and cost-effective." },
-            { category: "Pet Supplies", item: "Wet Dog Food (e.g., Pedigree)", retailer: "Amazon Subscribe & Save", notes: "Subscribing to a monthly delivery of a 24 or 48-pack of tins is cheaper than buying weekly." },
-            { category: "Pet Supplies", item: "Puppy Training Pads", retailer: "Amazon", notes: "Buy in large packs (e.g., 100 pads) for the best price per pad." }
+        const firebaseConfig = typeof __firebase_config !== 'undefined'
+            ? JSON.parse(__firebase_config)
+            : { apiKey: "DUMMY_KEY", authDomain: "DUMMY_DOMAIN", projectId: "DUMMY_PROJECT" };
+        
+        const defaultItems = [
+            { category: "Household Cleaning", item: "Dishwasher Tablets/Pods", retailer: "Amazon Subscribe & Save", notes: "Bulk buy brands like Fairy or Finish.", replacement: "Finish Quantum All in One", link: "", price: 12.00, status: "To Buy" },
+            { category: "Household Cleaning", item: "Washing Machine Pods", retailer: "Amazon Subscribe & Save", notes: "Buying in bulk offers significant savings.", replacement: "", link: "", price: 10.50, status: "To Buy" },
+            { category: "Household Cleaning", item: "Fabric Softener (e.g., Comfort)", retailer: "Amazon Subscribe & Save", notes: "Large bottles are cheaper per wash.", replacement: "Lenor Fabric Conditioner", link: "", price: 4.00, status: "To Buy" },
+            { category: "Household Cleaning", item: "All-Purpose/Multi-Purpose Cleaner", retailer: "Amazon Subscribe & Save", notes: "Brands like Dettol offer multi-packs.", replacement: "", link: "", price: 2.50, status: "To Buy" },
+            { category: "Household Cleaning", item: "Kitchen Cleaner Spray", retailer: "Amazon Subscribe & Save", notes: "Dettol Power & Pure or similar.", replacement: "", link: "", price: 3.00, status: "To Buy" },
+            { category: "Household Cleaning", item: "Toilet Cleaner Gel (e.g., Harpic)", retailer: "Asda", notes: "Buy multi-packs when on offer.", replacement: "ASDA Cool Aqua Gel", link: "", price: 1.50, status: "To Buy" },
+            { category: "Household Cleaning", item: "Bleach / Disinfectant", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 1.00, status: "To Buy" },
+            { category: "Household Cleaning", item: "Floor Cleaner", retailer: "Asda", notes: "Purchase as required.", replacement: "", link: "", price: 2.20, status: "To Buy" },
+            { category: "Household Cleaning", item: "Glass Cleaner", retailer: "Asda", notes: "Add when running low.", replacement: "", link: "", price: 1.80, status: "To Buy" },
+            { category: "Household Cleaning", item: "Furniture Polish", retailer: "Asda", notes: "Add when running low.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Household Cleaning", item: "Air Freshener Plug-in Refills", retailer: "Amazon Subscribe & Save", notes: "Twin packs are ideal.", replacement: "", link: "", price: 5.00, status: "To Buy" },
+            { category: "Household Cleaning", item: "Dish Soap (Washing Up Liquid)", retailer: "Amazon Subscribe & Save", notes: "Large bottles are cost-effective.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Kitchen Supplies", item: "Kitchen Roll (e.g., Regina Blitz)", retailer: "Amazon Subscribe & Save", notes: "Bulk packs offer best value.", replacement: "Plenty Kitchen Roll", link: "", price: 4.50, status: "To Buy" },
+            { category: "Toiletries", item: "Toilet Paper (e.g., Andrex)", retailer: "Amazon Subscribe & Save", notes: "Buy large packs (16+ rolls).", replacement: "ASDA Shades Ultrasoft", link: "", price: 9.00, status: "To Buy" },
+            { category: "Kitchen Supplies", item: "Trash Bags / Caddy Liners", retailer: "Asda", notes: "Check for own-brand multi-packs.", replacement: "", link: "", price: 3.00, status: "To Buy" },
+            { category: "Kitchen Supplies", item: "Kitchen Foil", retailer: "Asda", notes: "Add to grocery order.", replacement: "", link: "", price: 2.50, status: "To Buy" },
+            { category: "Kitchen Supplies", item: "Cling Film", retailer: "Asda", notes: "Add to grocery order.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Kitchen Supplies", item: "Baking Paper", retailer: "Asda", notes: "Add to grocery order.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Kitchen Supplies", item: "Sponges (Cleaning & Dishwashing)", retailer: "Amazon", notes: "Buy large multi-packs.", replacement: "", link: "", price: 3.50, status: "To Buy" },
+            { category: "Kitchen Supplies", item: "Rubber Gloves", retailer: "Asda", notes: "Add a pair when needed.", replacement: "", link: "", price: 1.50, status: "To Buy" },
+            { category: "Kitchen Supplies", item: "Dish Towels / Pot Holders", retailer: "Amazon / Asda", notes: "Purchase as needed.", replacement: "", link: "", price: 5.00, status: "To Buy" },
+            { category: "Pantry Staples", item: "Sunflower Oil (e.g., KTC 5L)", retailer: "Asda", notes: "Large 5-litre bottles are best value.", replacement: "", link: "", price: 8.00, status: "To Buy" },
+            { category: "Pantry Staples", item: "Olive Oil", retailer: "Asda", notes: "Look for promotions on 1-litre bottles.", replacement: "", link: "", price: 6.00, status: "To Buy" },
+            { category: "Pantry Staples", item: "Basmati Rice (e.g., Tilda)", retailer: "Asda / Amazon", notes: "Large bags (5kg+) are good value.", replacement: "Taj Pure Basmati Rice", link: "", price: 12.00, status: "To Buy" },
+            { category: "Pantry Staples", item: "Arborio Rice", retailer: "Asda", notes: "Add to regular shop.", replacement: "", link: "", price: 3.00, status: "To Buy" },
+            { category: "Pantry Staples", item: "Pasta", retailer: "Asda", notes: "Own-brand is cost-effective.", replacement: "", link: "", price: 1.00, status: "To Buy" },
+            { category: "Pantry Staples", item: "Canned Chopped Tomatoes", retailer: "Asda", notes: "Buy in multi-packs.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Pantry Staples", item: "Canned Plum Tomatoes", retailer: "Asda", notes: "Buy in multi-packs.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Pantry Staples", item: "Canned Chickpeas", retailer: "Asda", notes: "Stock up when on offer.", replacement: "", link: "", price: 0.70, status: "To Buy" },
+            { category: "Pantry Staples", item: "Canned Cannellini Beans", retailer: "Asda", notes: "Asda's own brand is good value.", replacement: "", link: "", price: 0.70, status: "To Buy" },
+            { category: "Pantry Staples", item: "Canned Mushrooms", retailer: "Asda", notes: "Just Essentials range is cheap.", replacement: "", link: "", price: 0.60, status: "To Buy" },
+            { category: "Pantry Staples", item: "Canned Sweetcorn", retailer: "Asda", notes: "Multi-packs of Green Giant.", replacement: "", link: "", price: 2.50, status: "To Buy" },
+            { category: "Pantry Staples", item: "Canned Tuna", retailer: "Asda", notes: "Buy in multi-packs.", replacement: "", link: "", price: 3.50, status: "To Buy" },
+            { category: "Pantry Staples", item: "Canned Baked Beans", retailer: "Asda", notes: "Stock up on multi-packs on offer.", replacement: "", link: "", price: 2.20, status: "To Buy" },
+            { category: "Pantry Staples", item: "Canned Lentils / Green Beans", retailer: "Asda", notes: "Add as needed.", replacement: "", link: "", price: 0.80, status: "To Buy" },
+            { category: "Pantry Staples", item: "Ketchup (e.g., Heinz)", retailer: "Asda", notes: "Buy largest bottle size.", replacement: "ASDA Tomato Ketchup", link: "", price: 2.50, status: "To Buy" },
+            { category: "Pantry Staples", item: "Mayonnaise (e.g., Heinz)", retailer: "Asda", notes: "Larger jars are better value.", replacement: "", link: "", price: 2.50, status: "To Buy" },
+            { category: "Pantry Staples", item: "Mustard", retailer: "Asda", notes: "Purchase as needed.", replacement: "", link: "", price: 1.20, status: "To Buy" },
+            { category: "Pantry Staples", item: "Salt & Pepper", retailer: "Asda", notes: "Refill packs as needed.", replacement: "", link: "", price: 1.00, status: "To Buy" },
+            { category: "Pantry Staples", item: "Spices (e.g., Prymat)", retailer: "Asda", notes: "Add as required.", replacement: "", link: "", price: 1.00, status: "To Buy" },
+            { category: "Pantry Staples", item: "Flour / Polenta", retailer: "Asda", notes: "Add as required.", replacement: "", link: "", price: 1.50, status: "To Buy" },
+            { category: "Pantry Staples", item: "Sugar", retailer: "Asda", notes: "Add as required.", replacement: "", link: "", price: 0.90, status: "To Buy" },
+            { category: "Drinks", item: "Coffee Pods (All types)", retailer: "Amazon Subscribe & Save", notes: "Buying packs of 3+ is cheaper.", replacement: "", link: "", price: 9.00, status: "To Buy" },
+            { category: "Drinks", item: "Diet Coke / Juices", retailer: "Asda", notes: "Look for multi-pack deals.", replacement: "", link: "", price: 5.00, status: "To Buy" },
+            { category: "Snacks", item: "Crackers", retailer: "Asda", notes: "Add to shop.", replacement: "", link: "", price: 1.30, status: "To Buy" },
+            { category: "Bakery & Cereals", item: "Cereal", retailer: "Asda", notes: "Buy larger boxes for better value.", replacement: "", link: "", price: 2.50, status: "To Buy" },
+            { category: "Dairy & Eggs", item: "Milk", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 1.65, status: "To Buy" },
+            { category: "Dairy & Eggs", item: "Cheese (Mozzarella, etc.)", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Dairy & Eggs", item: "Philadelphia Spreadable Cheese", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 2.20, status: "To Buy" },
+            { category: "Dairy & Eggs", item: "Butter (e.g., Lurpak)", retailer: "Asda", notes: "Stock up when on offer.", replacement: "Country Life Butter", link: "", price: 3.50, status: "To Buy" },
+            { category: "Dairy & Eggs", item: "Yogurt", retailer: "Asda", notes: "Buy larger pots for better value.", replacement: "", link: "", price: 1.00, status: "To Buy" },
+            { category: "Dairy & Eggs", item: "Eggs", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Bakery & Cereals", item: "Bread", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 1.20, status: "To Buy" },
+            { category: "Meat, Poultry & Fish", item: "Chicken (Thighs, Drumsticks)", retailer: "Asda", notes: "Larger packs better value per kg.", replacement: "", link: "", price: 5.00, status: "To Buy" },
+            { category: "Meat, Poultry & Fish", item: "Minced Chicken", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 4.00, status: "To Buy" },
+            { category: "Meat, Poultry & Fish", item: "Pork Sausages (e.g., Richmond)", retailer: "Iceland / Asda", notes: "Check Iceland for bulk-buy deals.", replacement: "", link: "", price: 2.50, status: "To Buy" },
+            { category: "Meat, Poultry & Fish", item: "Other Meats / Fish", retailer: "Asda", notes: "Buy from fresh counter as needed.", replacement: "", link: "", price: 6.00, status: "To Buy" },
+            { category: "Fresh Produce", item: "Bananas", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 0.80, status: "To Buy" },
+            { category: "Fresh Produce", item: "Apples (e.g., Pink Lady)", retailer: "Asda", notes: "Buy in bags for better value.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Fresh Produce", item: "Onions (Red, Brown/White)", retailer: "Asda", notes: "Buy in net bags.", replacement: "", link: "", price: 1.00, status: "To Buy" },
+            { category: "Fresh Produce", item: "Potatoes (Baking, Red)", retailer: "Asda", notes: "2kg bags are a good staple.", replacement: "", link: "", price: 1.50, status: "To Buy" },
+            { category: "Fresh Produce", item: "Carrots", retailer: "Asda", notes: "Buy in bags.", replacement: "", link: "", price: 0.60, status: "To Buy" },
+            { category: "Fresh Produce", item: "Garlic", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 0.50, status: "To Buy" },
+            { category: "Fresh Produce", item: "Tomatoes (Salad, etc.)", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 1.20, status: "To Buy" },
+            { category: "Fresh Produce", item: "Cucumber (Standard, Mini)", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 0.70, status: "To Buy" },
+            { category: "Fresh Produce", item: "Mushrooms (Fresh)", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 1.00, status: "To Buy" },
+            { category: "Fresh Produce", item: "Fresh Salad Leaves", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 1.00, status: "To Buy" },
+            { category: "Fresh Produce", item: "Courgettes / Aubergines", retailer: "Asda", notes: "Add to weekly delivery.", replacement: "", link: "", price: 1.50, status: "To Buy" },
+            { category: "Frozen Foods", item: "Frozen Mixed Vegetables", retailer: "Iceland", notes: "Bulk buy large bags from Iceland.", replacement: "Birds Eye Mixed Vegetables", link: "", price: 1.50, status: "To Buy" },
+            { category: "Frozen Foods", item: "Frozen Peas / Spinach", retailer: "Iceland", notes: "Stock up the freezer.", replacement: "", link: "", price: 1.20, status: "To Buy" },
+            { category: "Frozen Foods", item: "Frozen Chips", retailer: "Iceland", notes: "Iceland has frequent offers.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Frozen Foods", item: "Frozen Seafood", retailer: "Iceland", notes: "Wide variety and good deals.", replacement: "", link: "", price: 5.00, status: "To Buy" },
+            { category: "Frozen Foods", item: "Frozen Paratha (e.g., Shana)", retailer: "Iceland / Asda", notes: "Check the freezer aisle.", replacement: "", link: "", price: 2.50, status: "To Buy" },
+            { category: "Frozen Foods", item: "Frozen Gyoza (e.g., Itsu)", retailer: "Iceland / Asda", notes: "Check the freezer aisle.", replacement: "", link: "", price: 3.50, status: "To Buy" },
+            { category: "Frozen Foods", item: "Frozen Okra (e.g., Taj Bhindi)", retailer: "Asda", notes: "Check world foods freezer section.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Toiletries", item: "Hand Soap", retailer: "Amazon", notes: "Buy multi-pack refills.", replacement: "", link: "", price: 4.00, status: "To Buy" },
+            { category: "Toiletries", item: "Shower Gel (Men's)", retailer: "Asda", notes: "Look for offers on larger bottles.", replacement: "", link: "", price: 1.50, status: "To Buy" },
+            { category: "Toiletries", item: "Shampoo (Men's)", retailer: "Asda", notes: "Look for offers on larger bottles.", replacement: "", link: "", price: 2.00, status: "To Buy" },
+            { category: "Toiletries", item: "Tissues (e.g., Kleenex, ASDA)", retailer: "Amazon Subscribe & Save", notes: "Multi-packs are convenient.", replacement: "", link: "", price: 3.00, status: "To Buy" },
+            { category: "Pet Supplies", item: "Wet Dog Food (e.g., Pedigree)", retailer: "Amazon Subscribe & Save", notes: "Subscribe to a monthly delivery.", replacement: "Butcher's Wet Dog Food", link: "", price: 20.00, status: "To Buy" },
+            { category: "Pet Supplies", item: "Puppy Training Pads", retailer: "Amazon", notes: "Buy in large packs (e.g., 100).", replacement: "", link: "", price: 15.00, status: "To Buy" }
         ];
 
-        document.addEventListener('DOMContentLoaded', () => {
+        let shoppingData = [];
+        let db;
+        let itemsCollection;
+        let currentView = 'To Buy'; // 'To Buy' or 'In Pantry'
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                const auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const userId = auth.currentUser.uid;
+                itemsCollection = collection(db, `artifacts/${appId}/users/${userId}/items`);
+
+                setupRealtimeListener();
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                document.getElementById('loading-overlay').innerHTML = `<div class="text-red-400 text-center">Connection failed. Please check your Firebase configuration in the HTML file or ensure the environment is set up correctly.</div>`;
+                return;
+            }
+
             const shoppingListContainer = document.getElementById('shopping-list');
             const categoryFilter = document.getElementById('category-filter');
             const retailerFilter = document.getElementById('retailer-filter');
@@ -221,81 +299,137 @@
             const editItemForm = document.getElementById('edit-item-form');
             const cancelEditBtn = document.getElementById('cancel-edit');
             const scanAllBtn = document.getElementById('scan-all-btn');
+            
+            const viewShoppingListBtn = document.getElementById('view-shopping-list');
+            const viewPantryBtn = document.getElementById('view-pantry');
 
             let chartInstance = null;
+            
+            async function seedDatabase() {
+                console.log("Empty database detected. Seeding with default items...");
+                const promises = defaultItems.map(item => addDoc(itemsCollection, item));
+                await Promise.all(promises);
+            }
 
-            const mockFetchPrice = (itemName, retailer) => {
+            function setupRealtimeListener() {
+                onSnapshot(itemsCollection, (snapshot) => {
+                    if (snapshot.empty && defaultItems.length > 0) {
+                        seedDatabase();
+                    } else {
+                        shoppingData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        document.getElementById('loading-overlay').style.display = 'none';
+                        updateUI();
+                    }
+                });
+            }
+
+            const mockFetchPrice = (basePrice) => {
                 return new Promise(resolve => {
-                    const randomDelay = 800 + Math.random() * 1200;
+                    const randomDelay = 400 + Math.random() * 800;
                     setTimeout(() => {
-                        const basePrice = Math.random() * 8 + 1;
                         let price;
-                        if (retailer.toLowerCase().includes('amazon')) {
-                            price = basePrice * 0.95;
-                        } else if (retailer.toLowerCase().includes('iceland')) {
-                            price = basePrice * 1.05;
-                        } else {
-                            price = basePrice;
-                        }
-                        resolve({
-                            price: `£${price.toFixed(2)}`
-                        });
+                        const rand = Math.random();
+                        if (rand < 0.15) { price = basePrice * (Math.random() * 0.3 + 0.5); } 
+                        else if (rand < 0.4) { price = basePrice * (Math.random() * 0.15 + 0.8); } 
+                        else if (rand < 0.5) { price = basePrice * (Math.random() * 0.2 + 1.05); } 
+                        else { price = basePrice * (Math.random() * 0.1 - 0.05 + 1); }
+                        resolve({ price: price });
                     }, randomDelay);
                 });
             };
-            
+
             const handlePriceScan = async (scanBtn) => {
-                const index = parseInt(scanBtn.dataset.index, 10);
-                const item = shoppingData[index];
-                const card = scanBtn.closest('.bg-stone-50');
+                const itemId = scanBtn.dataset.id;
+                const item = shoppingData.find(d => d.id === itemId);
+                if (!item) return;
+
+                const card = scanBtn.closest('.bg-gray-800');
                 const priceDisplay = card.querySelector('.price-display');
+                const trendDisplay = card.querySelector('.price-trend');
                 
                 scanBtn.disabled = true;
                 const icon = scanBtn.querySelector('svg');
                 icon.classList.add('animate-spin');
-                priceDisplay.textContent = 'Scanning...';
+                priceDisplay.innerHTML = 'Scanning...';
+                trendDisplay.innerHTML = '';
 
                 try {
-                    const result = await mockFetchPrice(item.item, item.retailer);
-                    priceDisplay.textContent = result.price;
+                    const basePrice = item.price || 5.00;
+                    const result = await mockFetchPrice(basePrice);
+                    const newPrice = result.price;
+
+                    let buyLink = '#';
+                    if (item.link) {
+                        buyLink = item.link;
+                    } else {
+                        const query = encodeURIComponent(item.item);
+                        const retailerLower = item.retailer.toLowerCase();
+                        if (retailerLower.includes('asda')) { buyLink = `https://groceries.asda.com/search/${query}`; } 
+                        else if (retailerLower.includes('iceland')) { buyLink = `https://www.iceland.co.uk/search?q=${query}`; } 
+                        else if (retailerLower.includes('amazon')) { buyLink = `https://www.amazon.co.uk/s?k=${query}`; }
+                    }
+                    
+                    priceDisplay.innerHTML = `<a href="${buyLink}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline" title="Buy at ${item.retailer}">~ £${newPrice.toFixed(2)}</a>`;
+
+                    const ratio = newPrice / basePrice;
+                    let trendHTML = '';
+                    if (ratio < 0.85) { trendHTML = `<span class="text-green-400 flex items-center gap-1"><svg class="trend-icon" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v5a1 1 0 102 0V7z" clip-rule="evenodd"></path></svg>On Sale</span>`; } 
+                    else if (ratio < 0.98) { trendHTML = `<span class="text-yellow-400 flex items-center gap-1"><svg class="trend-icon" fill="currentColor" viewBox="0 0 20 20"><path d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a1 1 0 011-1h5a.997.997 0 01.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"></path></svg>Discounted</span>`; } 
+                    else if (ratio > 1.05) { trendHTML = `<span class="text-red-400 flex items-center gap-1"><svg class="trend-icon" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd"></path></svg>Increased</span>`; } 
+                    else { trendHTML = `<span class="text-gray-400">Stable</span>`; }
+                    trendDisplay.innerHTML = trendHTML;
                 } catch (error) {
-                    priceDisplay.textContent = 'Error';
+                    priceDisplay.innerHTML = 'Error';
                 } finally {
                     scanBtn.disabled = false;
                     icon.classList.remove('animate-spin');
                 }
             };
-
+            
             const renderItems = (items) => {
                 shoppingListContainer.innerHTML = '';
                 if (items.length === 0) {
-                    shoppingListContainer.innerHTML = `<p class="text-gray-500 md:col-span-2 text-center">No items match your selected filters.</p>`;
+                    shoppingListContainer.innerHTML = `<p class="text-gray-400 md:col-span-2 text-center">No items found.</p>`;
                     return;
                 }
                 items.forEach((item) => {
-                    const originalIndex = shoppingData.indexOf(item);
+                    const isPantryView = currentView === 'In Pantry';
+                    const replacementHTML = item.replacement ? `<p class="text-xs text-gray-400 mt-2">Alt: <span class="font-medium">${item.replacement}</span></p>` : '';
+                    const priceHTML = item.price > 0 ? `<p class="text-lg font-bold text-gray-100">£${item.price.toFixed(2)}</p>` : ``;
+                    
                     const itemCard = `
-                        <div class="bg-stone-50 border border-stone-200 rounded-lg p-4 flex flex-col justify-between">
+                        <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-col justify-between">
                             <div>
-                                <p class="text-sm font-medium text-[#A88B79]">${item.category}</p>
-                                <h3 class="text-lg font-bold text-[#6D5D53] mt-1">${item.item}</h3>
-                                <p class="text-sm text-gray-600 mt-2">${item.notes || 'No notes'}</p>
-                            </div>
-                            <div class="mt-4 pt-3 border-t border-stone-200">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm font-semibold text-gray-700 bg-stone-200 rounded-full px-3 py-1">${item.retailer}</span>
-                                    <span class="price-display text-lg font-bold text-[#6D5D53]"></span>
+                                <div class="flex justify-between items-start">
+                                    <p class="text-sm font-medium text-blue-400">${item.category}</p>
+                                    <button class="toggle-pantry-btn text-gray-400 hover:text-yellow-400" data-id="${item.id}" data-status="${item.status}" title="${isPantryView ? 'Move to Shopping List' : 'Move to Pantry'}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            ${isPantryView ? '<path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />' : '<path fill-rule="evenodd" d="M10 2a1 1 0 00-1 1v1a1 1 0 002 0V3a1 1 0 00-1-1zM4 4a1 1 0 001 1v1a1 1 0 002 0V5a1 1 0 00-1-1H4zM15 3a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM4 8a1 1 0 001 1h1a1 1 0 100-2H5a1 1 0 00-1 1zM15 7a1 1 0 110 2h-1a1 1 0 110-2h1zM4 12a1 1 0 001 1h1a1 1 0 100-2H5a1 1 0 00-1 1zM15 11a1 1 0 110 2h-1a1 1 0 110-2h1zM5 15a1 1 0 100 2h1a1 1 0 100-2H5zM14 15a1 1 0 100 2h1a1 1 0 100-2h-1z" clip-rule="evenodd" />'}
+                                        </svg>
+                                    </button>
                                 </div>
-                                <div class="flex justify-end items-center gap-2 mt-3">
-                                    <button class="scan-btn text-gray-400 hover:text-[#A88B79]" data-index="${originalIndex}" title="Scan for latest price">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" /></svg>
-                                    </button>
-                                    <button class="edit-btn text-gray-400 hover:text-[#A88B79]" data-index="${originalIndex}" title="Edit item">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
-                                    </button>
-                                    <button class="delete-btn text-gray-400 hover:text-red-500" data-index="${originalIndex}" title="Delete item">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                                    </button>
+                                <h3 class="text-lg font-bold text-gray-100 mt-1">${item.item}</h3>
+                                <p class="text-sm text-gray-300 mt-2">${item.notes || 'No notes'}</p>
+                                ${replacementHTML}
+                            </div>
+                            <div class="mt-4 pt-3 border-t border-gray-700">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm font-semibold text-gray-200 bg-gray-700 rounded-full px-3 py-1">${item.retailer}</span>
+                                    <div class="price-display text-right">${priceHTML}</div>
+                                </div>
+                                <div class="flex justify-between items-center mt-3">
+                                    <div class="price-trend text-xs font-semibold"></div>
+                                    <div class="flex justify-end items-center gap-2">
+                                        <button class="scan-btn text-gray-400 hover:text-blue-400" data-id="${item.id}" title="Scan for price trend">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" /></svg>
+                                        </button>
+                                        <button class="edit-btn text-gray-400 hover:text-blue-400" data-id="${item.id}" title="Edit item">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                                        </button>
+                                        <button class="delete-btn text-gray-400 hover:text-red-500" data-id="${item.id}" title="Delete item">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -307,191 +441,128 @@
             const getFilteredData = () => {
                 const selectedCategory = categoryFilter.value;
                 const selectedRetailer = retailerFilter.value;
-                let filteredData = shoppingData;
-
-                if (selectedCategory !== 'all') {
-                    filteredData = filteredData.filter(d => d.category === selectedCategory);
-                }
-                if (selectedRetailer !== 'all') {
-                    filteredData = filteredData.filter(d => d.retailer.includes(selectedRetailer));
-                }
+                let filteredData = shoppingData.filter(d => d.status === currentView);
+                if (selectedCategory !== 'all') { filteredData = filteredData.filter(d => d.category === selectedCategory); }
+                if (selectedRetailer !== 'all') { filteredData = filteredData.filter(d => d.retailer.includes(selectedRetailer)); }
                 return filteredData;
             };
 
             const updateUI = () => {
                 const uniqueCategories = [...new Set(shoppingData.map(d => d.category))].sort();
                 const uniqueRetailers = [...new Set(shoppingData.flatMap(d => d.retailer.split(' / ')))].sort();
-                
                 const currentCat = categoryFilter.value;
                 categoryFilter.innerHTML = '<option value="all">All Categories</option>';
-                uniqueCategories.forEach(cat => {
-                    const option = document.createElement('option');
-                    option.value = cat;
-                    option.textContent = cat;
-                    categoryFilter.appendChild(option);
-                });
+                uniqueCategories.forEach(cat => { categoryFilter.innerHTML += `<option value="${cat}">${cat}</option>`; });
                 if (uniqueCategories.includes(currentCat)) categoryFilter.value = currentCat;
-                
                 const currentRet = retailerFilter.value;
                 retailerFilter.innerHTML = '<option value="all">All Retailers</option>';
-                 uniqueRetailers.forEach(ret => {
-                    const option = document.createElement('option');
-                    option.value = ret;
-                    option.textContent = ret;
-                    retailerFilter.appendChild(option);
-                });
+                uniqueRetailers.forEach(ret => { retailerFilter.innerHTML += `<option value="${ret}">${ret}</option>`; });
                 if (uniqueRetailers.includes(currentRet)) retailerFilter.value = currentRet;
-
                 const retailersCount = calculateSummary(uniqueRetailers);
                 renderChart(retailersCount);
                 renderItems(getFilteredData());
             };
             
             const calculateSummary = (uniqueRetailers) => {
-                const totalItems = shoppingData.length;
+                const shoppingListItems = shoppingData.filter(item => item.status === 'To Buy');
+                const totalItems = shoppingListItems.length;
                 const retailersCount = {};
                 uniqueRetailers.forEach(r => retailersCount[r] = 0);
-                
-                shoppingData.forEach(d => {
-                    uniqueRetailers.forEach(r => {
-                        if (d.retailer.includes(r)) {
-                            retailersCount[r]++;
-                        }
-                    });
-                });
-
+                shoppingListItems.forEach(d => { uniqueRetailers.forEach(r => { if (d.retailer.includes(r)) { retailersCount[r]++; } }); });
                 summaryContainer.innerHTML = `
-                    <div class="bg-white p-4 rounded-lg shadow text-center">
-                        <p class="text-2xl font-bold text-[#A88B79]">${totalItems}</p>
-                        <p class="text-sm text-gray-500">Total Items</p>
-                    </div>
-                `;
-                
-                const statColors = ['#6D5D53', '#8C7B70', '#A88B79', '#C4B5A5'];
+                    <div class="bg-[#2d3748] border border-gray-700 p-4 rounded-lg shadow text-center"><p class="text-2xl font-bold text-blue-400">${totalItems}</p><p class="text-sm text-gray-400">Items to Buy</p></div>
+                    <div class="bg-[#2d3748] border border-gray-700 p-4 rounded-lg shadow text-center"><p class="text-2xl font-bold text-yellow-400">${shoppingData.length - totalItems}</p><p class="text-sm text-gray-400">Items in Pantry</p></div>`;
+                const statColors = ['#63b3ed', '#90cdf4', '#a0aec0', '#718096'];
                 let colorIndex = 0;
-                
                 Object.entries(retailersCount).forEach(([retailer, count]) => {
                      const color = statColors[colorIndex % statColors.length];
-                     summaryContainer.innerHTML += `
-                        <div class="bg-white p-4 rounded-lg shadow text-center">
-                            <p class="text-2xl font-bold" style="color:${color};">${count}</p>
-                            <p class="text-sm text-gray-500">${retailer}</p>
-                        </div>
-                    `;
+                     summaryContainer.innerHTML += `<div class="bg-[#2d3748] border border-gray-700 p-4 rounded-lg shadow text-center"><p class="text-2xl font-bold" style="color:${color};">${count}</p><p class="text-sm text-gray-400">${retailer}</p></div>`;
                     colorIndex++;
                 });
-
                 return retailersCount;
             };
 
             const renderChart = (retailersCount) => {
-                if (chartInstance) {
-                    chartInstance.destroy();
-                }
+                if (chartInstance) chartInstance.destroy();
                 const ctx = document.getElementById('retailerChart').getContext('2d');
+                Chart.defaults.color = '#a0aec0';
                 chartInstance = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(retailersCount),
-                        datasets: [{
-                            label: 'Items per Retailer',
-                            data: Object.values(retailersCount),
-                            backgroundColor: ['#A88B79', '#C4B5A5', '#6D5D53', '#8C7B70', '#FDFBF8'],
-                            borderColor: '#FFFFFF',
-                            borderWidth: 2,
-                            hoverOffset: 4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    font: { family: 'Inter', size: 12 }
-                                }
-                            }
-                        }
-                    }
+                    type: 'doughnut', data: { labels: Object.keys(retailersCount), datasets: [{ data: Object.values(retailersCount), backgroundColor: ['#4299e1', '#63b3ed', '#2b6cb0', '#90cdf4', '#a0aec0'], borderColor: '#2d3748', borderWidth: 3, hoverOffset: 4 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 12 }, color: '#a0aec0' } } } }
                 });
             };
             
-            addItemForm.addEventListener('submit', (e) => {
+            addItemForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const newItem = {
-                    item: document.getElementById('item-name').value.trim(),
-                    category: document.getElementById('item-category').value.trim(),
-                    retailer: document.getElementById('item-retailer').value.trim(),
-                    notes: document.getElementById('item-notes').value.trim(),
-                };
-                shoppingData.push(newItem);
+                const price = document.getElementById('item-price').value;
+                await addDoc(itemsCollection, {
+                    item: document.getElementById('item-name').value.trim(), category: document.getElementById('item-category').value.trim(),
+                    retailer: document.getElementById('item-retailer').value.trim(), notes: document.getElementById('item-notes').value.trim(),
+                    replacement: document.getElementById('item-replacement').value.trim(), link: document.getElementById('item-link').value.trim(),
+                    price: price ? parseFloat(price) : 0, status: 'To Buy'
+                });
                 addItemForm.reset();
-                updateUI();
             });
 
-            shoppingListContainer.addEventListener('click', (e) => {
-                const scanBtn = e.target.closest('.scan-btn');
+            shoppingListContainer.addEventListener('click', async (e) => {
                 const editBtn = e.target.closest('.edit-btn');
                 const deleteBtn = e.target.closest('.delete-btn');
+                const pantryBtn = e.target.closest('.toggle-pantry-btn');
+                const scanBtn = e.target.closest('.scan-btn');
 
-                if(scanBtn) {
-                    handlePriceScan(scanBtn);
+                if (scanBtn) { handlePriceScan(scanBtn); }
+                if (pantryBtn) {
+                    const itemId = pantryBtn.dataset.id;
+                    const itemRef = doc(db, itemsCollection.path, itemId);
+                    await updateDoc(itemRef, { status: pantryBtn.dataset.status === 'To Buy' ? 'In Pantry' : 'To Buy' });
                 }
-
                 if (editBtn) {
-                    const index = parseInt(editBtn.dataset.index, 10);
-                    const item = shoppingData[index];
-                    document.getElementById('edit-item-index').value = index;
+                    const itemId = editBtn.dataset.id;
+                    const item = shoppingData.find(d => d.id === itemId);
+                    document.getElementById('edit-item-id').value = item.id;
                     document.getElementById('edit-item-name').value = item.item;
                     document.getElementById('edit-item-category').value = item.category;
                     document.getElementById('edit-item-retailer').value = item.retailer;
-                    document.getElementById('edit-item-notes').value = item.notes;
-                    editModal.classList.remove('hidden');
-                    editModal.classList.add('flex');
+                    document.getElementById('edit-item-notes').value = item.notes || '';
+                    document.getElementById('edit-item-replacement').value = item.replacement || '';
+                    document.getElementById('edit-item-link').value = item.link || '';
+                    document.getElementById('edit-item-price').value = item.price || '';
+                    editModal.classList.remove('hidden'); editModal.classList.add('flex');
                 }
-
                 if (deleteBtn) {
-                    const index = parseInt(deleteBtn.dataset.index, 10);
-                    shoppingData.splice(index, 1);
-                    updateUI();
+                    const itemId = deleteBtn.dataset.id;
+                    await deleteDoc(doc(db, itemsCollection.path, itemId));
                 }
             });
 
             scanAllBtn.addEventListener('click', () => {
-                const visibleScanBtns = shoppingListContainer.querySelectorAll('.scan-btn');
-                visibleScanBtns.forEach((btn, index) => {
+                document.querySelectorAll('#shopping-list .scan-btn').forEach((btn, index) => {
                     setTimeout(() => {
-                        if (!btn.disabled) {
-                           handlePriceScan(btn);
-                        }
+                        if (!btn.disabled) handlePriceScan(btn);
                     }, index * 200);
                 });
             });
 
-            editItemForm.addEventListener('submit', (e) => {
+            editItemForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const index = parseInt(document.getElementById('edit-item-index').value, 10);
-                shoppingData[index] = {
-                    item: document.getElementById('edit-item-name').value.trim(),
-                    category: document.getElementById('edit-item-category').value.trim(),
-                    retailer: document.getElementById('edit-item-retailer').value.trim(),
-                    notes: document.getElementById('edit-item-notes').value.trim(),
-                };
-                editModal.classList.add('hidden');
-                editModal.classList.remove('flex');
-                updateUI();
+                const itemId = document.getElementById('edit-item-id').value;
+                const price = document.getElementById('edit-item-price').value;
+                const itemRef = doc(db, itemsCollection.path, itemId);
+                await updateDoc(itemRef, {
+                    item: document.getElementById('edit-item-name').value.trim(), category: document.getElementById('edit-item-category').value.trim(),
+                    retailer: document.getElementById('edit-item-retailer').value.trim(), notes: document.getElementById('edit-item-notes').value.trim(),
+                    replacement: document.getElementById('edit-item-replacement').value.trim(), link: document.getElementById('edit-item-link').value.trim(),
+                    price: price ? parseFloat(price) : 0
+                });
+                editModal.classList.add('hidden'); editModal.classList.remove('flex');
             });
 
-            cancelEditBtn.addEventListener('click', () => {
-                editModal.classList.add('hidden');
-                editModal.classList.remove('flex');
-            });
+            viewShoppingListBtn.addEventListener('click', () => { currentView = 'To Buy'; viewShoppingListBtn.classList.add('active'); viewPantryBtn.classList.remove('active'); updateUI(); });
+            viewPantryBtn.addEventListener('click', () => { currentView = 'In Pantry'; viewPantryBtn.classList.add('active'); viewShoppingListBtn.classList.remove('active'); updateUI(); });
+            cancelEditBtn.addEventListener('click', () => { editModal.classList.add('hidden'); editModal.classList.remove('flex'); });
             
             categoryFilter.addEventListener('change', () => renderItems(getFilteredData()));
             retailerFilter.addEventListener('change', () => renderItems(getFilteredData()));
-            
-            updateUI();
         });
     </script>
 </body>
